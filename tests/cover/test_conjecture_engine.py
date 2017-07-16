@@ -23,6 +23,7 @@ from random import Random
 
 from hypothesis import strategies as st
 from hypothesis import Phase, given, settings, unlimited
+from tests.common.utils import checks_deprecated_behaviour
 from hypothesis.database import ExampleDatabase
 from hypothesis.internal.compat import hbytes, int_from_bytes, \
     bytes_from_list
@@ -310,6 +311,7 @@ def test_interleaving_engines(rnd):
     assert x[8:].count(255) == 1
 
 
+@checks_deprecated_behaviour
 def test_run_with_timeout_while_shrinking():
     def f(data):
         time.sleep(0.1)
@@ -318,19 +320,20 @@ def test_run_with_timeout_while_shrinking():
             data.mark_interesting()
 
     runner = ConjectureRunner(
-        f, settings=settings(database=None, timeout=0.2, strict=False))
+        f, settings=settings(database=None, timeout=0.2))
     start = time.time()
     runner.run()
     assert time.time() <= start + 1
     assert runner.last_data.status == Status.INTERESTING
 
 
+@checks_deprecated_behaviour
 def test_run_with_timeout_while_boring():
     def f(data):
         time.sleep(0.1)
 
     runner = ConjectureRunner(
-        f, settings=settings(database=None, timeout=0.2, strict=False))
+        f, settings=settings(database=None, timeout=0.2))
     start = time.time()
     runner.run()
     assert time.time() <= start + 1

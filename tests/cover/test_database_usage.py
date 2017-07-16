@@ -72,8 +72,8 @@ def test_trashes_all_invalid_examples():
         try:
             find(
                 st.binary(min_size=100),
-                lambda x: assume(not finicky) and any(x),
-                settings=settings(database=database, timeout=5, strict=False),
+                lambda x: assume(not finicky) and any(x), settings=settings(
+                    database=database, max_iterations=500),
                 database_key=key
             )
         except Unsatisfiable:
