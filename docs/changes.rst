@@ -36,6 +36,8 @@ fall back to doing one draw per element of the array. If you do not see a
 performance improvement from this release, please file an issue with an
 example of your use case.
 
+This work was funded by `Stripe <https://stripe.com/>`_.
+
 -------------------
 3.18.0 - 2017-08-13
 -------------------
