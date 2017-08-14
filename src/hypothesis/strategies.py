@@ -35,7 +35,6 @@ from hypothesis.internal.floats import is_negative, float_to_int, \
     int_to_float, count_between_floats
 from hypothesis.utils.conventions import infer, not_set
 from hypothesis.internal.reflection import proxies, required_args
-from hypothesis.searchstrategy.reprwrapper import ReprWrapperStrategy
 
 __all__ = [
     'nothing',
@@ -108,14 +107,24 @@ def cacheable(fn):
     return cached_strategy
 
 
-def defines_strategy(strategy_definition):
-    from hypothesis.searchstrategy.lazy import LazyStrategy
-    _strategies.add(strategy_definition.__name__)
+def base_defines_strategy(force_reusable):
+    def decorator(strategy_definition):
+        from hypothesis.searchstrategy.lazy import LazyStrategy
+        _strategies.add(strategy_definition.__name__)
 
-    @proxies(strategy_definition)
-    def accept(*args, **kwargs):
-        return LazyStrategy(strategy_definition, args, kwargs)
-    return accept
+        @proxies(strategy_definition)
+        def accept(*args, **kwargs):
+            result = LazyStrategy(strategy_definition, args, kwargs)
+            if force_reusable:
+                result.force_has_reusable_values = True
+                assert result.has_reusable_values
+            return result
+        return accept
+    return decorator
+
+
+defines_strategy = base_defines_strategy(False)
+defines_strategy_with_reusable_values = base_defines_strategy(True)
 
 
 class Nothing(SearchStrategy):
@@ -125,6 +134,9 @@ class Nothing(SearchStrategy):
 
     def do_draw(self, data):
         data.mark_invalid()
+
+    def calc_has_reusable_values(self):
+        return True
 
     def __repr__(self):
         return 'nothing()'
@@ -157,10 +169,7 @@ def just(value):
     """
     from hypothesis.searchstrategy.misc import JustStrategy
 
-    def calc_repr():
-        return 'just(%s)' % (repr(value),)
-
-    return ReprWrapperStrategy(JustStrategy(value), calc_repr)
+    return JustStrategy(value)
 
 
 @defines_strategy
@@ -188,7 +197,7 @@ def one_of(*args):
 
 
 @cacheable
-@defines_strategy
+@defines_strategy_with_reusable_values
 def integers(min_value=None, max_value=None):
     """Returns a strategy which generates integers (in Python 2 these may be
     ints or longs).
@@ -251,7 +260,7 @@ def booleans():
 
 
 @cacheable
-@defines_strategy
+@defines_strategy_with_reusable_values
 def floats(
     min_value=None, max_value=None, allow_nan=None, allow_infinity=None
 ):
@@ -633,7 +642,7 @@ def streaming(elements):
 
 
 @cacheable
-@defines_strategy
+@defines_strategy_with_reusable_values
 def characters(whitelist_categories=None, blacklist_categories=None,
                blacklist_characters=None, min_codepoint=None,
                max_codepoint=None, whitelist_characters=None):
@@ -705,7 +714,7 @@ def characters(whitelist_categories=None, blacklist_categories=None,
 
 
 @cacheable
-@defines_strategy
+@defines_strategy_with_reusable_values
 def text(
     alphabet=None,
     min_size=None, average_size=None, max_size=None
@@ -741,7 +750,7 @@ def text(
 
 
 @cacheable
-@defines_strategy
+@defines_strategy_with_reusable_values
 def binary(
     min_size=None, average_size=None, max_size=None
 ):
@@ -970,7 +979,7 @@ def from_type(thing):
 
 
 @cacheable
-@defines_strategy
+@defines_strategy_with_reusable_values
 def fractions(min_value=None, max_value=None, max_denominator=None):
     """Returns a strategy which generates Fractions.
 
@@ -1011,7 +1020,7 @@ def fractions(min_value=None, max_value=None, max_denominator=None):
 
 
 @cacheable
-@defines_strategy
+@defines_strategy_with_reusable_values
 def decimals(min_value=None, max_value=None,
              allow_nan=None, allow_infinity=None, places=None):
     """Generates instances of decimals.Decimal, which may be:
@@ -1140,7 +1149,7 @@ def permutations(values):
     return PermutationStrategy()
 
 
-@defines_strategy
+@defines_strategy_with_reusable_values
 def datetimes(min_datetime=dt.datetime.min, max_datetime=dt.datetime.max,
               timezones=none()):
     """A strategy for generating datetimes, which may be timezone-aware.
@@ -1197,7 +1206,7 @@ def datetimes(min_datetime=dt.datetime.min, max_datetime=dt.datetime.max,
     return DatetimeStrategy(min_datetime, max_datetime, timezones)
 
 
-@defines_strategy
+@defines_strategy_with_reusable_values
 def dates(min_date=dt.date.min, max_date=dt.date.max):
     """A strategy for dates between ``min_date`` and ``max_date``."""
     from hypothesis.searchstrategy.datetime import DateStrategy
@@ -1210,7 +1219,7 @@ def dates(min_date=dt.date.min, max_date=dt.date.max):
     return DateStrategy(min_date, max_date)
 
 
-@defines_strategy
+@defines_strategy_with_reusable_values
 def times(min_time=dt.time.min, max_time=dt.time.max, timezones=none()):
     """A strategy for times between ``min_time`` and ``max_time``.
 
@@ -1230,7 +1239,7 @@ def times(min_time=dt.time.min, max_time=dt.time.max, timezones=none()):
                      timezones=timezones).map(lambda t: t.timetz())
 
 
-@defines_strategy
+@defines_strategy_with_reusable_values
 def timedeltas(min_delta=dt.timedelta.min, max_delta=dt.timedelta.max):
     """A strategy for timedeltas between ``min_delta`` and ``max_delta``."""
     from hypothesis.searchstrategy.datetime import TimedeltaStrategy
@@ -1365,6 +1374,7 @@ def choices():
 
 
 @cacheable
+@defines_strategy_with_reusable_values
 def uuids():
     """Returns a strategy that generates UUIDs.
 
@@ -1373,13 +1383,12 @@ def uuids():
 
     """
     from uuid import UUID
-    return ReprWrapperStrategy(
-        shared(randoms(), key='hypothesis.strategies.uuids.generator').map(
-            lambda r: UUID(int=r.getrandbits(128))
-        ), 'uuids()')
+    return shared(randoms(), key='hypothesis.strategies.uuids.generator').map(
+        lambda r: UUID(int=r.getrandbits(128))
+    )
 
 
-@defines_strategy
+@defines_strategy_with_reusable_values
 def runner(default=not_set):
     """A strategy for getting "the current test runner", whatever that may be.
     The exact meaning depends on the entry point, but it will usually be the
