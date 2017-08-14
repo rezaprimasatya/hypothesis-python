@@ -22,6 +22,21 @@ You should generally assume that an API is internal unless you have specific
 information to the contrary.
 
 -------------------
+3.18.1 - 2017-08-14
+-------------------
+
+This release provides what should be a substantial performance improvement to
+numpy arrays generated using :ref:`provided numpy support <hypothesis-numpy>`.
+
+This is achieved by drawing a single value and propagating it to the whole
+array, then assigning a small number of values to other points in the array.
+
+This approach will not work for all strategies and in some cases it will still
+fall back to doing one draw per element of the array. If you do not see a
+performance improvement from this release, please file an issue with an
+example of your use case.
+
+-------------------
 3.18.0 - 2017-08-13
 -------------------
 
